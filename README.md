@@ -1,5 +1,7 @@
 # 🛒 Wholesale Customer Segmentation Dashboard
 
+**🌍 Live Demo:** [https://mallcustomersegmentation-teitaey.streamlit.app](https://mallcustomersegmentation-teitaey.streamlit.app)
+
 An interactive Machine Learning web application that automatically groups wholesale customers into distinct "Shopping Personas" based on their annual purchasing habits. 
 
 Built entirely with Python, this project uses **Unsupervised Machine Learning (K-Means Clustering)** and **Dimensionality Reduction (PCA)** to transform raw, multi-dimensional sales data into an easy-to-understand, interactive business dashboard.
