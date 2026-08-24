@@ -37,6 +37,38 @@ y_kmeans = kmeans.fit_predict(X_pca)
 # Give human-friendly names to the clusters
 dataset['Customer Persona'] = [f"Persona {c + 1}" for c in y_kmeans]
 
+# --- DYNAMIC BUSINESS INSIGHTS ENGINE ---
+persona_insights = {}
+spending_cols = ['Fresh', 'Milk', 'Grocery', 'Frozen', 'Detergents_Paper', 'Delicassen']
+global_mean = dataset[spending_cols].mean() * 80
+
+for c in range(k_clusters):
+    p_name = f"Persona {c + 1}"
+    cluster_data = dataset[dataset['Customer Persona'] == p_name][spending_cols]
+    if len(cluster_data) == 0:
+        continue
+    cluster_mean = cluster_data.mean() * 80
+    ratios = cluster_mean / global_mean
+    
+    max_cat = ratios.idxmax()
+    max_ratio = ratios.max()
+    min_cat = ratios.idxmin()
+    
+    cat_names = {
+        'Fresh': 'Fresh Produce', 'Milk': 'Dairy & Milk', 'Grocery': 'General Grocery',
+        'Frozen': 'Frozen Goods', 'Detergents_Paper': 'Detergents & Paper', 'Delicassen': 'Delicatessen'
+    }
+    
+    if max_ratio < 0.9:
+        title = "Budget / Small-Scale Buyers"
+        desc = f"Spends below the global average across all categories, heavily avoiding {cat_names.get(min_cat, min_cat)}. Likely small cafes or corner shops."
+    else:
+        title = f"{cat_names.get(max_cat, max_cat)} Giants"
+        desc = f"They spend **{max_ratio:.1f}x** the global average on {cat_names.get(max_cat, max_cat)}. This is their absolute core business driver."
+    
+    persona_insights[p_name] = {'title': title, 'desc': desc}
+# ----------------------------------------
+
 st.sidebar.divider()
 st.sidebar.markdown("### **Predict New Customer**")
 st.sidebar.markdown("Enter annual spending (₹) to see which persona this customer belongs to.")
@@ -90,7 +122,10 @@ if len(st.session_state['new_customers']) > 0:
 # Main Layout
 if len(st.session_state['new_customers']) > 0:
     total_existing = len(dataset)
-    st.success(f"🎉 **Prediction Complete!** You have manually added {len(st.session_state['new_customers'])} new customers. You can see them plotted as black 'X' marks on the chart below, and in the table!")
+    st.success(f"🎉 **Prediction Complete!** You have manually added {len(st.session_state['new_customers'])} new customers.")
+    for idx, cust in enumerate(st.session_state['new_customers']):
+        insight = persona_insights[cust['persona']]
+        st.markdown(f"- **Customer {total_existing + idx + 1}** belongs to **{cust['persona']} ({insight['title']})**. *{insight['desc']}*")
 
 st.markdown(f"### **Visualizing your {k_clusters} Customer Personas**")
 st.markdown("Each dot represents a customer. Customers grouped close together share similar buying habits.")
@@ -118,6 +153,21 @@ st.pyplot(fig2)
 
 st.divider()
 
+st.markdown("### **💡 Persona Breakdowns (Plain English)**")
+st.markdown("We analyzed how each group's spending compares to the global average to determine their true business identity.")
+
+# Display the insights dynamically in columns
+insight_cols = st.columns(min(k_clusters, 4))
+for i in range(k_clusters):
+    col = insight_cols[i % 4]
+    p_name = f"Persona {i+1}"
+    if p_name in persona_insights:
+        insight = persona_insights[p_name]
+        with col:
+            st.info(f"**{p_name}: {insight['title']}**\n\n{insight['desc']}")
+
+st.divider()
+
 colA, colB = st.columns([1, 2])
 
 with colA:
@@ -135,6 +185,9 @@ with colB:
     summary = summary * 80
     summary_inr = summary.map(lambda x: f"₹ {x:,.0f}")
     
+    # Inject the business identity directly into the table rows
+    summary_inr.index = [f"{p} ({persona_insights[p]['title']})" if p in persona_insights else p for p in summary_inr.index]
+    
     # If new customers were predicted, add their exact inputs to the table for direct comparison
     for idx, cust in enumerate(st.session_state['new_customers']):
         new_cust_row = pd.DataFrame({
@@ -144,7 +197,7 @@ with colB:
             'Frozen': [f"₹ {cust['frozen']:,.0f}"],
             'Detergents_Paper': [f"₹ {cust['detergents']:,.0f}"],
             'Delicassen': [f"₹ {cust['delicassen']:,.0f}"]
-        }, index=[f"🎯 Customer {len(dataset) + idx + 1} ({cust['persona']})"])
+        }, index=[f"🎯 Customer {len(dataset) + idx + 1} ({persona_insights[cust['persona']]['title']})"])
         summary_inr = pd.concat([summary_inr, new_cust_row])
         
     st.dataframe(summary_inr, use_container_width=True)
